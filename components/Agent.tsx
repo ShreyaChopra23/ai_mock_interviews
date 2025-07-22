@@ -6,6 +6,7 @@ import {cn} from "@/lib/utils";
 import {useRouter} from "next/navigation";
 //import { generator, interviewer } from "@/constants";
 import {vapi} from "@/lib/vapi.sdk";
+import {interviewer} from "@/constants";
 
 enum CallStatus{
     INACTIVE = "INACTIVE",
@@ -19,7 +20,7 @@ interface SavedMessage {
     content: string;
 }
 
-const Agent = ({userName, userId, type }: AgentProps) => {
+const Agent = ({userName, userId, type, interviewId, questions }: AgentProps) => {
     const router = useRouter();
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
@@ -59,8 +60,33 @@ const Agent = ({userName, userId, type }: AgentProps) => {
         }
     }, [])
 
+    const handleGenerateFeedback = async (messages: SavedMessage[]) => {
+        console.log('Generate feedback');
+
+        //TODO: Create a server action that generates feedback
+        const {success, id} = {
+            success: true,
+            id: 'feedback-id'
+        }
+
+        if(success && id){
+            router.push(`/interview/${interviewId}/feedback`);
+        }
+        else{
+            console.log('Error saving feedback');
+            router.push('/');
+        }
+    }
+
     useEffect(() => {
-        if(callStatus === CallStatus.FINISHED) router.push('/');
+        if(callStatus === CallStatus.FINISHED) {
+            if(type === 'generate'){
+                router.push('/');
+            }
+            else{
+                handleGenerateFeedback(messages);
+            }
+        }
     },[messages, callStatus, type, userId]);
 
     const handleCall = async () => {
@@ -80,16 +106,17 @@ const Agent = ({userName, userId, type }: AgentProps) => {
                     },
                 }
             );
-        } else {
+        }
+        else {
             // If you're using pre-fetched questions, prepare and pass them
             let formattedQuestions = "";
-            if (messages.length > 0) {
-                formattedQuestions = messages
-                    .map((m) => `- ${m.content}`)
+            if (questions) {
+                formattedQuestions = questions
+                    .map((question) => `- ${question}`)
                     .join("\n");
             }
 
-            await vapi.start(undefined, {
+            await vapi.start(interviewer, {
                 variableValues: {
                     questions: formattedQuestions,
                 },
